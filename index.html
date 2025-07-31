@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Grammar Quiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (Tailwind Stone) with Teal accent -->
+    <!-- Application Structure Plan: The application now features a "Home Page" as its initial view, presenting a grid of buttons. Each button represents a distinct quiz set, dynamically generated from a central data structure. Clicking a button transitions to the "Quiz Container" view, which maintains the single-question-at-a-time focus, progress tracking, and immediate feedback. Upon quiz completion, the "Results Container" is shown. Navigation between these views is handled via dedicated buttons (e.g., "Back to Home", "Restart Quiz"). This structure provides a clear entry point for users to select their desired quiz content and enhances the application's scalability for future quiz additions. -->
+    <!-- Visualization & Content Choices: The Home Page uses a simple grid of styled HTML buttons to allow selection of quiz sets (Goal: Organize/Navigate, Interaction: Click). Questions are presented as text with clickable buttons for options (Goal: Test Knowledge, Interaction: Click). Feedback is a dynamic text block (Goal: Inform, Interaction: Appears on click). Final score is visualized with a Chart.js Donut Chart (Goal: Compare/Summarize, Viz: Donut Chart) showing correct vs. incorrect answers for a quick, impactful summary of performance. All diagrams/visuals are HTML/CSS/Canvas based, adhering to the NO SVG/Mermaid constraint. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 280px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px;
+            max-height: 280px;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl mx-auto">
+        
+        <div id="home-page-container" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg transition-opacity duration-500">
+            <h2 class="text-2xl sm:text-3xl font-bold text-stone-800 mb-6 text-center">Select a Quiz Set</h2>
+            <div id="quiz-set-buttons" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Quiz set buttons will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <div id="quiz-container" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg transition-opacity duration-500 hidden">
+            <header class="mb-6">
+                <div class="flex justify-between items-center mb-2 text-sm text-stone-500">
+                    <span>Progress</span>
+                    <span id="progress-text">Question 1 / 20</span>
+                </div>
+                <div class="w-full bg-stone-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-teal-500 h-2.5 rounded-full transition-all duration-500" style="width: 5%"></div>
+                </div>
+            </header>
+
+            <main>
+                <h2 id="question-text" class="text-xl sm:text-2xl font-semibold mb-6 h-24 sm:h-16"></h2>
+                <div id="options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                </div>
+            </main>
+
+            <div id="feedback-container" class="mt-6 p-4 rounded-lg bg-stone-100 border border-stone-200 hidden">
+                <h3 id="feedback-title" class="font-bold text-lg mb-2"></h3>
+                <p id="feedback-explanation" class="text-stone-600 mb-2"></p>
+                <p id="feedback-justification" class="text-sm text-stone-500"></p>
+            </div>
+
+            <footer class="mt-8 flex justify-between items-center">
+                <button id="back-to-home-button" class="px-4 py-2 bg-stone-200 text-stone-700 font-semibold rounded-lg shadow-md hover:bg-stone-300 focus:outline-none focus:ring-2 focus:ring-stone-400 focus:ring-opacity-75 transition-colors">
+                    Back to Home
+                </button>
+                <button id="next-button" class="px-6 py-2 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-75 disabled:bg-stone-300 disabled:cursor-not-allowed transition-colors">
+                    Next
+                </button>
+            </footer>
+        </div>
+
+        <div id="results-container" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg text-center transition-opacity duration-500 hidden">
+            <h2 class="text-2xl sm:text-3xl font-bold text-stone-800 mb-2">Quiz Completed!</h2>
+            <p class="text-stone-600 mb-6">Here's how you did.</p>
+            
+            <div class="chart-container mb-6">
+                <canvas id="results-chart"></canvas>
+            </div>
+            
+            <p id="score-text" class="text-xl font-semibold mb-8"></p>
+
+            <div class="flex flex-col sm:flex-row justify-center gap-4">
+                <button id="restart-button" class="w-full sm:w-auto px-8 py-3 bg-teal-600 text-white font-semibold rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-opacity-75 transition-colors">
+                    Restart Quiz
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const quizSets = [
+            // Quiz Set 1: Original Grammar Questions
+            [
+                { question: "Taking on too many responsibilities can lead to ________.", options: ["overwhelm", "overwhelmed", "overwhelming", "overwhelms"], correct: 2, explanation: "“Overwhelming” (adjective) describes something that causes a feeling of being overwhelmed.", justification: "a) “overwhelm” is a verb; b) “overwhelmed” is a past participle; d) “overwhelms” is a verb." },
+                { question: "The committee’s decision was widely ________ in the local news.", options: ["reported", "reporter", "reporting", "reportage"], correct: 0, explanation: "“Reported” (past-participle) describes how the decision was presented.", justification: "b) “reporter” is a person; c) “reporting” is a noun; d) “reportage” is a formal noun." },
+                { question: "The project will ________ several departments.", options: ["involve", "involved", "involvement", "involving"], correct: 0, explanation: "After “will” we use the base verb “involve.”", justification: "b) “involved” is the wrong tense; c) “involvement” is a noun; d) “involving” is a participle." },
+                { question: "She has a very ________ memory and remembers facts easily.", options: ["photographic", "photography", "photographed", "photographs"], correct: 0, explanation: "“Photographic” (adjective) describes an exceptionally clear memory.", justification: "b) “photography” is a noun; c) “photographed” is a past-participle; d) “photographs” is a noun." },
+                { question: "The teacher emphasised the ________ of punctuality.", options: ["importance", "important", "importantly", "import"], correct: 0, explanation: "“Importance” (noun) fits the structure “the … of punctuality.”", justification: "b) is an adjective; c) is an adverb; d) “import” is a less common noun here." },
+                { question: "Many learners find phrasal verbs ________.", options: ["confusing", "confused", "confusion", "confuse"], correct: 0, explanation: "Phrasal verbs cause confusion, so the adjective “confusing” is correct.", justification: "b) “confused” describes a person; c) is a noun; d) is a verb." },
+                { question: "His explanation was quite ________; I understood everything.", options: ["clarity", "clarify", "clear", "clearing"], correct: 2, explanation: "“Clear” (adjective) describes the explanation.", justification: "a) is a noun; b) is a verb; d) is a gerund/noun." },
+                { question: "It’s essential to ________ new vocabulary frequently.", options: ["revise", "revision", "revising", "revised"], correct: 0, explanation: "After “to,” use the base verb “revise.”", justification: "b) is a noun; c) is a gerund; d) is a past participle." },
+                { question: "She gained ________ from her reading practice.", options: ["confidence", "confident", "confidently", "confortable"], correct: 0, explanation: "“Confidence” (noun) is what she gains.", justification: "b) is an adjective; c) is an adverb; d) is a misspelling." },
+                { question: "The exam questions were ________ than I expected.", options: ["more difficult", "most difficult", "difficultest", "difficult"], correct: 0, explanation: "The comparative form “more difficult” is needed for the comparison.", justification: "b) is superlative; c) is not a word; d) is not comparative." },
+                { question: "He has the ________ to adapt lessons for diverse learners.", options: ["ability", "able", "abilitying", "ably"], correct: 0, explanation: "“Ability” (noun) fits the structure “has the … to adapt.”", justification: "b) is an adjective; c) is not a word; d) is an adverb." },
+                { question: "They ________ the lesson plan before the class started.", options: ["finalised", "finalise", "finalising", "finale"], correct: 0, explanation: "The past-tense verb “finalised” is needed.", justification: "b) is present tense; c) is a gerund; d) is a noun." },
+                { question: "His approach is highly ________ and effective.", options: ["practical", "practise", "practically", "practicable"], correct: 0, explanation: "“Practical” (adjective) describes the approach.", justification: "b) is a verb/noun; c) is an adverb; d) means possible but is less natural." },
+                { question: "The teacher encouraged ________ learning among her students.", options: ["autonomous", "autonomy", "autonomously", "autonomise"], correct: 0, explanation: "“Autonomous learning” is a common collocation (adjective + noun).", justification: "b) is a noun; c) is an adverb; d) is a verb." },
+                { question: "The deadline was suddenly ________ from Friday to Monday.", options: ["extended", "extending", "extents", "extent"], correct: 0, explanation: "“Extended” is the past participle used in this passive construction.", justification: "b) is progressive; c) is a plural noun; d) is a noun." },
+                { question: "Students should practise ________ new words in sentence context.", options: ["using", "used", "use", "uses"], correct: 0, explanation: "The gerund “using” is required after the verb “practise.”", justification: "b) is an adjective; c) is a base verb; d) is a third-person singular verb." },
+                { question: "He achieved a high level of ________ in spoken English.", options: ["proficiency", "proficient", "proficiently", "proficiate"], correct: 0, explanation: "“Proficiency” is the noun required to express a level of ability.", justification: "b) is an adjective; c) is an adverb; d) is not a word." },
+                { question: "We must ensure consistent ________ across all exams.", options: ["marking", "marked", "mark", "marker"], correct: 0, explanation: "“Marking” (noun/gerund) refers to the process of grading.", justification: "b) is an adjective; c) is a verb/noun; d) is a tool/person." },
+                { question: "Her feedback was very ________.", options: ["constructive", "construction", "constructively", "constructs"], correct: 0, explanation: "“Constructive feedback” is a very common and natural collocation.", justification: "b) is a noun; c) is an adverb; d) is a noun/verb." },
+                { question: "Many students found the grammar explanation ________.", options: ["helpful", "helpless", "helpfully", "helping"], correct: 0, explanation: "“Helpful” (adjective) is used to describe the explanation.", justification: "b) has the opposite meaning; c) is an adverb; d) is a gerund/participle." }
+            ],
+            // Quiz Set 2: Placeholder Questions
+            [
+                { question: "This is a placeholder question for Quiz Set 2. What is 2 + 2?", options: ["3", "4", "5", "6"], correct: 1, explanation: "The sum of 2 and 2 is 4.", justification: "Basic arithmetic." }
+            ],
+            // Quiz Set 3: Placeholder Questions
+            [
+                { question: "This is a placeholder question for Quiz Set 3. Which planet is known as the Red Planet?", options: ["Earth", "Mars", "Jupiter", "Venus"], correct: 1, explanation: "Mars is commonly referred to as the Red Planet due to its iron oxide-rich surface.", justification: "Common astronomical fact." }
+            ],
+            // Quiz Set 4: Placeholder Questions
+            [
+                { question: "This is a placeholder question for Quiz Set 4. What is the capital of France?", options: ["London", "Berlin", "Paris", "Rome"], correct: 2, explanation: "Paris is the capital city of France.", justification: "Geographical fact." }
+            ],
+            // Quiz Set 5: Placeholder Questions
+            [
+                { question: "This is a placeholder question for Quiz Set 5. Which of these is a primary color?", options: ["Green", "Orange", "Purple", "Blue"], correct: 3, explanation: "Blue is considered a primary color in the subtractive color model.", justification: "Color theory." }
+            ]
+        ];
+
+        let currentQuizSetIndex = 0;
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let userAnswers = [];
+        let chartInstance = null;
+
+        const homePageContainer = document.getElementById('home-page-container');
+        const quizSetButtonsContainer = document.getElementById('quiz-set-buttons');
+        const quizContainer = document.getElementById('quiz-container');
+        const resultsContainer = document.getElementById('results-container');
+
+        const questionTextEl = document.getElementById('question-text');
+        const optionsContainerEl = document.getElementById('options-container');
+        const feedbackContainerEl = document.getElementById('feedback-container');
+        const feedbackTitleEl = document.getElementById('feedback-title');
+        const feedbackExplanationEl = document.getElementById('feedback-explanation');
+        const feedbackJustificationEl = document.getElementById('feedback-justification');
+        const nextButton = document.getElementById('next-button');
+        const backToHomeButton = document.getElementById('back-to-home-button');
+        const progressTextEl = document.getElementById('progress-text');
+        const progressBarEl = document.getElementById('progress-bar');
+        const scoreTextEl = document.getElementById('score-text');
+        const restartButton = document.getElementById('restart-button');
+
+        function showHomePage() {
+            homePageContainer.classList.remove('hidden');
+            quizContainer.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+            renderQuizSetButtons();
+        }
+
+        function renderQuizSetButtons() {
+            quizSetButtonsContainer.innerHTML = '';
+            quizSets.forEach((set, index) => {
+                const button = document.createElement('button');
+                button.textContent = `Quiz Set ${index + 1}`;
+                button.classList.add('w-full', 'p-6', 'bg-teal-500', 'text-white', 'font-semibold', 'rounded-lg', 'shadow-md', 'hover:bg-teal-600', 'focus:outline-none', 'focus:ring-2', 'focus:ring-teal-500', 'focus:ring-opacity-75', 'transition-colors', 'text-lg');
+                button.addEventListener('click', () => startQuiz(index));
+                quizSetButtonsContainer.appendChild(button);
+            });
+        }
+
+        function startQuiz(setIndex) {
+            currentQuizSetIndex = setIndex;
+            currentQuestionIndex = 0;
+            score = 0;
+            userAnswers = new Array(quizSets[currentQuizSetIndex].length).fill(null);
+            
+            homePageContainer.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+            quizContainer.classList.remove('hidden');
+            showQuestion();
+        }
+
+        function showQuestion() {
+            resetState();
+            const currentQuestion = quizSets[currentQuizSetIndex][currentQuestionIndex];
+            questionTextEl.textContent = currentQuestion.question.replace('________', '________');
+            
+            currentQuestion.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.classList.add('w-full', 'p-4', 'border-2', 'border-stone-300', 'rounded-lg', 'text-left', 'hover:bg-stone-100', 'hover:border-teal-400', 'transition-colors', 'duration-200', 'focus:outline-none', 'focus:ring-2', 'focus:ring-teal-500');
+                button.dataset.index = index;
+                button.addEventListener('click', () => selectAnswer(index));
+                optionsContainerEl.appendChild(button);
+            });
+
+            updateProgress();
+        }
+
+        function resetState() {
+            optionsContainerEl.innerHTML = '';
+            feedbackContainerEl.classList.add('hidden');
+            nextButton.disabled = true;
+        }
+
+        function selectAnswer(selectedIndex) {
+            const currentQuestion = quizSets[currentQuizSetIndex][currentQuestionIndex];
+            const isCorrect = selectedIndex === currentQuestion.correct;
+            userAnswers[currentQuestionIndex] = selectedIndex;
+
+            if (isCorrect) {
+                score++;
+                feedbackTitleEl.textContent = 'Correct!';
+                feedbackTitleEl.classList.remove('text-red-600');
+                feedbackTitleEl.classList.add('text-green-600');
+            } else {
+                feedbackTitleEl.textContent = 'Incorrect';
+                feedbackTitleEl.classList.remove('text-green-600');
+                feedbackTitleEl.classList.add('text-red-600');
+            }
+
+            feedbackExplanationEl.textContent = currentQuestion.explanation;
+            feedbackJustificationEl.textContent = `Justification: ${currentQuestion.justification}`;
+            feedbackContainerEl.classList.remove('hidden');
+
+            Array.from(optionsContainerEl.children).forEach(button => {
+                button.disabled = true;
+                const buttonIndex = parseInt(button.dataset.index);
+
+                if (buttonIndex === currentQuestion.correct) {
+                    button.classList.remove('border-stone-300', 'hover:bg-stone-100');
+                    button.classList.add('bg-green-100', 'border-green-500', 'font-semibold');
+                } else if (buttonIndex === selectedIndex) {
+                    button.classList.remove('border-stone-300', 'hover:bg-stone-100');
+                    button.classList.add('bg-red-100', 'border-red-500');
+                }
+            });
+
+            nextButton.disabled = false;
+        }
+
+        function updateProgress() {
+            const totalQuestionsInSet = quizSets[currentQuizSetIndex].length;
+            const progressPercentage = ((currentQuestionIndex + 1) / totalQuestionsInSet) * 100;
+            progressTextEl.textContent = `Question ${currentQuestionIndex + 1} / ${totalQuestionsInSet}`;
+            progressBarEl.style.width = `${progressPercentage}%`;
+        }
+
+        function showResults() {
+            quizContainer.classList.add('hidden');
+            resultsContainer.classList.remove('hidden');
+            scoreTextEl.textContent = `You scored ${score} out of ${quizSets[currentQuizSetIndex].length}.`;
+            renderResultsChart();
+        }
+        
+        function renderResultsChart() {
+            const ctx = document.getElementById('results-chart').getContext('2d');
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Correct', 'Incorrect'],
+                    datasets: [{
+                        data: [score, quizSets[currentQuizSetIndex].length - score],
+                        backgroundColor: ['#14b8a6', '#fca5a5'],
+                        borderColor: ['#0f766e', '#ef4444'],
+                        borderWidth: 2,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: true
+                        }
+                    }
+                }
+            });
+        }
+
+        nextButton.addEventListener('click', () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < quizSets[currentQuizSetIndex].length) {
+                showQuestion();
+            } else {
+                showResults();
+            }
+        });
+
+        backToHomeButton.addEventListener('click', showHomePage);
+        restartButton.addEventListener('click', showHomePage);
+
+        document.addEventListener('DOMContentLoaded', showHomePage);
+    </script>
+</body>
+</html>
